@@ -4,143 +4,129 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from PIL import Image
 import numpy as np
+import pandas as pd
+from datetime import datetime
+from tensorflow.keras.applications.resnet50 import preprocess_input
 
-# Set page config
-st.set_page_config(page_title="Jai Shree Ram - Signature Verifier", layout="wide")
+# Set page configuration
+st.set_page_config(
+    page_title="Signature Verification System",
+    layout="wide"
+)
 
-# Inject custom Bhagwa theme CSS
-st.markdown("""
-    <style>
-        body {
-            background-image: url('https://i.imgur.com/f6YzRNh.jpeg');
-            background-size: cover;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-            background-position: center;
-        }
-        .main {
-            background-color: rgba(255, 255, 255, 0.92);
-            padding: 2rem;
-            border-radius: 10px;
-        }
-        h1, h2, h3, h4, h5, h6, p, label, div, .stTextInput > div > div > input {
-            color: #FF6F00 !important; /* Bhagwa */
-        }
-        .prediction-box {
-            background-color: white;
-            color: #FF6F00;
-            font-weight: bold;
-            font-size: 22px;
-            padding: 1rem;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .forged {
-            background-color: #B71C1C;
-            color: white;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# Load local external CSS
+def load_local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Sidebar Menu
-with st.sidebar:
-    selected = option_menu("Main Menu", ["Home", 'Upload', 'Settings'],
-                           icons=['house', 'cloud-upload', 'gear'],
-                           menu_icon="cast", default_index=1)
+# Load the custom CSS
+load_local_css("style.css")
 
-# Top Nav Menu
-menu_selection = option_menu(None, ["Home", "Upload", "Settings"],
-                             icons=['house', 'cloud-upload', 'gear'],
-                             orientation="horizontal",
-                             styles={
-                                 "container": {"padding": "0!important", "background-color": "#FF6F00"},
-                                 "icon": {"color": "white", "font-size": "20px"},
-                                 "nav-link": {"font-size": "18px", "color": "white", "--hover-color": "#FFA040"},
-                                 "nav-link-selected": {"background-color": "white", "color": "#FF6F00"},
-                             })
-
-# Load model
+# Load the trained model
 model = load_model('forge_real_signature_model.h5')
 
-# Preprocess image
+# Image preprocessing function
 def preprocess_image(img):
     img = img.resize((512, 512))
     img_array = image.img_to_array(img)
-    img_array = img_array / 255.0
+    img_array = img_array / 255
     img_array = np.expand_dims(img_array, axis=0)
-    return img_array
+    img_data  = preprocess_input(img_array)
+    return img_data
 
-# Upload section
-if menu_selection == "Upload":
-    st.markdown('<div class="main">', unsafe_allow_html=True)
+# Global dataframe to store results
+if "history_df" not in st.session_state:
+    st.session_state.history_df = pd.DataFrame(columns=["Date", "Filename", "Prediction Result", "Confidence Score"])
 
-    st.title("🖋️ Signature Forgery Detector")
-    st.write("Upload a signature image to check if it's **Genuine** or **Forged**.")
+# Sidebar navigation
+with st.sidebar:
+    menu_selection = option_menu(
+        "",
+        ["Home", "Verify Signature", "Verification History"],
+        icons=['speedometer2', 'cloud-upload', 'clock-history'],
+        menu_icon="cast",
+        default_index=0,
+        styles={
+            "container": {"background-color": "rgb(177 158 138)"},
+            "icon": {"color": "rgb(189 39 191)", "font-size": "35px"},
+            "nav-link": {
+                "font-size": "20px",
+                "color": "#00BFFF",
+                "--hover-color": "#333"
+            },
+            "nav-link-selected": {
+                "background-color": "#111",
+                "color": "#00BFFF"
+            },
+        })
 
-    uploaded_file = st.file_uploader("📂 Upload signature image...", type=["jpg", "png", "jpeg"])
-
-    if uploaded_file is not None:
-        image_file = Image.open(uploaded_file).convert('RGB')
-        st.image(image_file, caption='🖼 Uploaded Signature', use_column_width=True)
-
-        processed_image = preprocess_image(image_file)
-        prediction = model.predict(processed_image)
-        probability = prediction[0][0]
-
-        st.markdown(f"### 🔍 Confidence Score: `{probability:.4f}`")
-
-        label = "✅ Genuine" if probability > 0.5 else "❌ Forged"
-        result_class = "" if probability > 0.5 else "forged"
-
-        st.markdown(f'<div class="prediction-box {result_class}">{label}</div>', unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Home section
+# Dashboard
 if menu_selection == "Home":
     st.markdown("""
-        <style>
-            .hero-container {
-                background-color: rgba(255, 111, 0, 0.1);
-                padding: 3rem 2rem;
-                border-radius: 20px;
-                text-align: center;
-                box-shadow: 0 4px 15px rgba(255, 111, 0, 0.3);
-                margin-top: 2rem;
-            }
-            .hero-title {
-                font-size: 48px;
-                font-weight: bold;
-                color: #FF6F00;
-                text-shadow: 1px 1px 2px #fff2e6;
-            }
-            .hero-subtitle {
-                font-size: 22px;
-                color: #FF6F00;
-                margin-top: 1rem;
-            }
-            .hero-image {
-                width: 50%;
-                border-radius: 15px;
-                box-shadow: 0 0 20px rgba(255, 111, 0, 0.7);
-                margin-top: 2rem;
-            }
-        </style>
-        
         <div class="hero-container">
-            <div class="hero-title">🚩 Jai Shree Ram Signature Verifier</div>
+            <div class="hero-title">Signature Verification System</div>
             <div class="hero-subtitle">
-                Blending Technology with Dharma.<br>
-                A Divine AI Tool for Signature Verification. Powered by Bhagwan Ram’s blessings 🙏
+                <div id="hero-text">
+                Ensure the authenticity of handwritten signatures with advanced deep learning technology.<br>
+                Delivering fast, reliable, and secure verification for modern financial and administrative workflows.
+                </div>            
             </div>
-            <img class="hero-image" src="https://www.freepik.com/free-ai-image/businessman-holding-pen-signs-important-contract-document-generated-by-ai_42883652.htm#fromView=keyword&page=1&position=11&uuid=76a8b11c-1f73-49d0-84e7-c6dd1ebf6494&query=Signature" alt="Shri Ram Image">
+            <img class="hero-image" height="350px" width="250px" src="https://img.freepik.com/free-vector/closeup-fountain-pen-writing-signature-realistic_1284-13522.jpg" alt="Signature Illustration">
         </div>
     """, unsafe_allow_html=True)
 
-
-# Settings section
-if menu_selection == "Settings":
+# Upload and verify
+elif menu_selection == "Verify Signature":
     st.markdown('<div class="main">', unsafe_allow_html=True)
-    st.header("⚙️ Settings")
-    st.write("Coming soon: model reloads, theme selection, and more.")
+
+    st.title("Upload Signature for Verification")
+    st.write("Please upload a scanned image of the handwritten signature you wish to verify. The system will analyze the image and determine if it is **authentic** or **forged**.")
+
+    uploaded_file = st.file_uploader("Upload Signature Image", type=["jpg", "png", "jpeg"])
+
+    if uploaded_file is not None:
+        image_file = Image.open(uploaded_file).convert('RGB')
+        st.image(image_file, caption='Uploaded Signature Preview', use_container_width=True)
+        # img = image.load_img(r"C:\Users\HP\OneDrive\Desktop\sign_data\test\Real\049\01_049.png", target_size=(512,512))
+        # st.image(img, caption='Uploaded Signature Preview', use_column_width=True)
+
+        image_data = preprocess_image(image_file)
+        prediction = model.predict(image_data)
+        a = np.argmax(model.predict(image_data), axis = 1)
+        probability = prediction[0][0]
+        st.markdown(f"### Prediction Confidence: `{probability:.4f}`")
+
+        label = "Authentic" if a ==1 else "Forged"
+        label_display = "✔️ Authentic Signature" if label == "Authentic" else "Forged Signature Detected"
+        result_class = "" if label == "Authentic" else "forged"
+
+        st.markdown(f'<div class="prediction-box {result_class}">{label_display}</div>', unsafe_allow_html=True)
+
+        # Save to session history  
+        new_entry = {
+            "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Filename": uploaded_file.name,
+            "Prediction Result": label,
+            "Confidence Score": round(float(probability), 4)
+        }
+        st.session_state.history_df = pd.concat([st.session_state.history_df, pd.DataFrame([new_entry])], ignore_index=True)
+
     st.markdown('</div>', unsafe_allow_html=True)
+
+# History
+elif menu_selection == "Verification History":
+    st.markdown('<div class="main">', unsafe_allow_html=True)
+    st.header("Verification History")
+    st.write("Below is a log of previously processed signature verifications for your reference.")
+
+    df = st.session_state.history_df
+
+    # Styled display
+    st.dataframe(df.style.set_properties(**{
+        'background-color': '#000000',
+        'color': '#00BFFF',
+        'border-color': '#00BFFF'
+    }), height=300, use_container_width=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
