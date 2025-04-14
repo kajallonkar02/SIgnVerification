@@ -5,6 +5,7 @@ streamlit
 pandas
 pillow
 streamlit-option-menu
-numpy==1.23.5
-torch==2.0.1+cpu --index-url https://download.pytorch.org/whl/cpu
-torchvision==0.15.2+cpu --index-url https://download.pytorch.org/whl/cpu
+numpy>=1.23.0
+torch>=2.0.0
+torchvision>=0.15.0
+streamlit-option-menu>=0.3.0
