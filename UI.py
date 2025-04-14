@@ -1,12 +1,11 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
+
 from PIL import Image
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from tensorflow.keras.applications.resnet50 import preprocess_input
+
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
