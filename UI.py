@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from tensorflow.keras.applications.resnet50 import preprocess_input
+import torch
+import torch.nn as nn
+from torchvision import models, transforms
 
 # Set page configuration
 st.set_page_config(
@@ -22,17 +25,25 @@ def load_local_css(file_name):
 # Load the custom CSS
 load_local_css("style.css")
 
-# Load the trained model
-model = load_model('forge_real_signature_model.h5')
+# --- Load the Model ---
+@st.cache_resource
+def load_model():
+    model = models.resnet50(pretrained=False)
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, 2)  # Real or Forged
+    model.load_state_dict(torch.load("signature_model_10.pth", map_location=torch.device('cpu')))
+    model.eval()
+    return model
+model = load_model()
+
 
 # Image preprocessing function
-def preprocess_image(img):
-    img = img.resize((512, 512))
-    img_array = image.img_to_array(img)
-    img_array = img_array / 255
-    img_array = np.expand_dims(img_array, axis=0)
-    img_data  = preprocess_input(img_array)
-    return img_data
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], 
+                         [0.229, 0.224, 0.225])
+])
 
 # Global dataframe to store results
 if "history_df" not in st.session_state:
@@ -71,7 +82,7 @@ if menu_selection == "Home":
                 Delivering fast, reliable, and secure verification for modern financial and administrative workflows.
                 </div>            
             </div>
-            <img class="hero-image" height="350px" width="250px" src="https://img.freepik.com/free-vector/closeup-fountain-pen-writing-signature-realistic_1284-13522.jpg" alt="Signature Illustration">
+            <img class="hero-image" height="300px" width="200px" src="https://img.freepik.com/free-vector/closeup-fountain-pen-writing-signature-realistic_1284-13522.jpg" alt="Signature Illustration">
         </div>
     """, unsafe_allow_html=True)
 
@@ -85,32 +96,36 @@ elif menu_selection == "Verify Signature":
     uploaded_file = st.file_uploader("Upload Signature Image", type=["jpg", "png", "jpeg"])
 
     if uploaded_file is not None:
-        image_file = Image.open(uploaded_file).convert('RGB')
-        st.image(image_file, caption='Uploaded Signature Preview', use_container_width=True)
-        # img = image.load_img(r"C:\Users\HP\OneDrive\Desktop\sign_data\test\Real\049\01_049.png", target_size=(512,512))
-        # st.image(img, caption='Uploaded Signature Preview', use_column_width=True)
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Uploaded Signature", use_container_width=True)
 
-        image_data = preprocess_image(image_file)
-        prediction = model.predict(image_data)
-        a = np.argmax(model.predict(image_data), axis = 1)
-        probability = prediction[0][0]
-        st.markdown(f"### Prediction Confidence: `{probability:.4f}`")
+        # Prediction Button
+        if st.button("Verify Signature"):
+            input_tensor = transform(image).unsqueeze(0)  # Shape: [1, 3, 224, 224]
+            with torch.no_grad():
+                outputs = model(input_tensor)
+                _, predicted = torch.max(outputs, 1)
+                confidence = torch.nn.functional.softmax(outputs, dim=1)[0][predicted.item()].item()
 
-        label = "Authentic" if a ==1 else "Forged"
-        label_display = "✔️ Authentic Signature" if label == "Authentic" else "Forged Signature Detected"
-        result_class = "" if label == "Authentic" else "forged"
-
-        st.markdown(f'<div class="prediction-box {result_class}">{label_display}</div>', unsafe_allow_html=True)
-
-        # Save to session history  
-        new_entry = {
+            label = "✔️ Authentic Signature" if predicted.item() == 1 else "Forged Signature Detected"
+            st.markdown(f"### Prediction: **{label.upper()}**")
+            st.write(f"Confidence Score: `{confidence:.4f}`")
+            new_entry = {
             "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Filename": uploaded_file.name,
             "Prediction Result": label,
-            "Confidence Score": round(float(probability), 4)
-        }
-        st.session_state.history_df = pd.concat([st.session_state.history_df, pd.DataFrame([new_entry])], ignore_index=True)
+            "Confidence Score": round(float(confidence), 4)
+            }
+            st.session_state.history_df = pd.concat([st.session_state.history_df, pd.DataFrame([new_entry])], ignore_index=True)
 
+            
+        # img = image.load_img(r"C:\Users\HP\OneDrive\Desktop\sign_data\test\Real\049\01_049.png", target_size=(512,512))
+        # st.image(img, caption='Uploaded Signature Preview', use_column_width=True)
+
+
+
+        # Save to session history  
+        
     st.markdown('</div>', unsafe_allow_html=True)
 
 # History
@@ -129,4 +144,3 @@ elif menu_selection == "Verification History":
     }), height=300, use_container_width=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
-
