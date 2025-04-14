@@ -1,3 +1,10 @@
 streamlit-option-menu==0.3.2
 torch==2.0.1
 torchvision==0.15.2
+streamlit
+torch
+torchvision
+pandas
+pillow
+numpy
+streamlit-option-menu
